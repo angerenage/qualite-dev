@@ -1,7 +1,9 @@
-package fr.iut.univparis8.arollet;
+package org.univ_paris8.iut.montreuil.arollet.qualite_dev.servlets;
 
 import java.io.IOException;
-import java.sql.Connection;
+
+import org.univ_paris8.iut.montreuil.arollet.qualite_dev.services.AnnonceService;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -15,29 +17,28 @@ public class AnnonceDelete extends HttpServlet {
 			throws ServletException, IOException {
 		String idParam = request.getParameter("id");
 		if (idParam == null) {
-			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Paramètre id manquant.");
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Parametre id manquant.");
 			return;
 		}
 
-		int id;
+		Long id;
 		try {
-			id = Integer.parseInt(idParam);
+			id = Long.parseLong(idParam);
 		} catch (NumberFormatException e) {
-			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Paramètre id invalide.");
+			response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Parametre id invalide.");
 			return;
 		}
 
 		try {
-			Connection connection = ConnectionDB.getInstance();
-			AnnonceDAO annonceDAO = new AnnonceDAO(connection);
-			boolean deleted = annonceDAO.deleteById(id);
+			AnnonceService annonceService = new AnnonceService();
+			boolean deleted = annonceService.deleteById(id);
 			if (!deleted) {
 				response.sendError(HttpServletResponse.SC_NOT_FOUND, "Annonce introuvable.");
 				return;
 			}
-			response.sendRedirect(request.getContextPath() + "/AnnonceList");
-		} catch (ClassNotFoundException e) {
-			throw new ServletException("Impossible de se connecter à la base.", e);
+			response.sendRedirect(request.getContextPath() + "/annonces");
+		} catch (RuntimeException e) {
+			throw new ServletException("Impossible de se connecter a la base.", e);
 		}
 	}
 }

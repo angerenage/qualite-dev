@@ -1,17 +1,4 @@
-<html>
-<body>
+<%@ page contentType="text/html; charset=UTF-8" %>
 <%
-  String name = request.getParameter("name");
+  response.sendRedirect(request.getContextPath() + "/annonces");
 %>
-
-<form method="get" action="index.jsp">
-  <label for="name">Nom :</label>
-  <input id="name" name="name" type="text" />
-  <button type="submit">Valider</button>
-</form>
-
-<% if (name != null && !name.trim().isEmpty()) { %>
-  <h2>Hello the World <%= name %></h2>
-<% } %>
-</body>
-</html>

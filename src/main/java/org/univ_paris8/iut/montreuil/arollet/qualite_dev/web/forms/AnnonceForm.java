@@ -1,35 +1,18 @@
-package fr.iut.univparis8.arollet;
+package org.univ_paris8.iut.montreuil.arollet.qualite_dev.web.forms;
 
-public class Annonce {
-	private int id;
+public class AnnonceForm {
+	private String id;
 	private String title;
 	private String description;
 	private String adress;
 	private String mail;
+	private String categoryId;
 
-	public Annonce() {
-	}
-
-	public Annonce(String title, String description, String adress, String mail) {
-		this.title = title;
-		this.description = description;
-		this.adress = adress;
-		this.mail = mail;
-	}
-
-	public Annonce(int id, String title, String description, String adress, String mail) {
-		this.id = id;
-		this.title = title;
-		this.description = description;
-		this.adress = adress;
-		this.mail = mail;
-	}
-
-	public int getId() {
+	public String getId() {
 		return id;
 	}
 
-	public void setId(int id) {
+	public void setId(String id) {
 		this.id = id;
 	}
 
@@ -63,5 +46,13 @@ public class Annonce {
 
 	public void setMail(String mail) {
 		this.mail = mail;
+	}
+
+	public String getCategoryId() {
+		return categoryId;
+	}
+
+	public void setCategoryId(String categoryId) {
+		this.categoryId = categoryId;
 	}
 }
