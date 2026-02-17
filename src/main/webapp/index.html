@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Liste des annonces</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #000; padding: 6px; }
+    .error { color: red; }
+  </style>
+  <script src="auth-utils.js"></script>
+  <script src="jtx-actions.js"></script>
+  <script src="api-client.js"></script>
+  <script>
+    requireAuthAndRedirect();
+  </script>
+</head>
+<body>
+  <div>
+    <a href="index.html">Liste</a>
+    |
+    <a href="edit.html">Nouvelle annonce</a>
+    |
+    <a href="category.html">Nouvelle categorie</a>
+    |
+    <a href="#" id="logoutLink">Deconnexion</a>
+  </div>
+
+
+  <hr />
+
+  <h1>Liste des annonces</h1>
+  <ul id="errors"></ul>
+
+  <p>Total : <span id="totalItems">0</span></p>
+
+  <p id="loadingMsg" style="display: none;">Chargement...</p>
+  <p id="emptyMsg" style="display: none;">Aucune annonce.</p>
+
+  <table id="annonceTable" cellspacing="0" cellpadding="6" style="display: none;">
+    <thead>
+      <tr>
+        <th>Titre</th>
+        <th>Statut</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="annonceRows"></tbody>
+  </table>
+
+  <div id="pagination" style="display: none;">
+    <a href="#" id="prevPage">Precedent</a>
+    <span>Page <span id="currentPage">1</span> / <span id="totalPages">1</span></span>
+    <a href="#" id="nextPage">Suivant</a>
+  </div>
+
+  <hr />
+  <p>Application Annonces - IUT</p>
+
+  <script>
+    var queryParams = new URLSearchParams(window.location.search);
+
+    var auth = {
+      token: getStoredToken(),
+      expiresIn: getStoredExpiresIn()
+    };
+
+    var listState = {
+      page: Number(queryParams.get("page") || 0),
+      size: Number(queryParams.get("size") || 5),
+      totalItems: 0,
+      totalPages: 0,
+      items: [],
+      loading: false,
+      errors: []
+    };
+
+    if (!Number.isFinite(listState.page) || listState.page < 0) {
+      listState.page = 0;
+    }
+    if (!Number.isFinite(listState.size) || listState.size < 1) {
+      listState.size = 5;
+    }
+
+
+    var logoutLink = document.getElementById("logoutLink");
+    var errorsList = document.getElementById("errors");
+    var totalItems = document.getElementById("totalItems");
+    var loadingMsg = document.getElementById("loadingMsg");
+    var emptyMsg = document.getElementById("emptyMsg");
+    var annonceTable = document.getElementById("annonceTable");
+    var annonceRows = document.getElementById("annonceRows");
+    var pagination = document.getElementById("pagination");
+    var prevPage = document.getElementById("prevPage");
+    var nextPage = document.getElementById("nextPage");
+    var currentPage = document.getElementById("currentPage");
+    var totalPages = document.getElementById("totalPages");
+
+    function syncUrl() {
+      var params = new URLSearchParams();
+      params.set("page", String(listState.page));
+      params.set("size", String(listState.size));
+      history.replaceState(null, "", "?" + params.toString());
+    }
+
+    function createTextCell(value) {
+      var td = document.createElement("td");
+      td.textContent = value == null ? "" : String(value);
+      return td;
+    }
+
+    function createLink(href, label) {
+      var link = document.createElement("a");
+      link.href = href;
+      link.textContent = label;
+      return link;
+    }
+
+    function renderErrors() {
+      errorsList.innerHTML = "";
+      if (!Array.isArray(listState.errors) || listState.errors.length === 0) {
+        return;
+      }
+      listState.errors.forEach(function (message) {
+        var li = document.createElement("li");
+        li.className = "error";
+        li.textContent = message;
+        errorsList.appendChild(li);
+      });
+    }
+
+    function renderRows() {
+      annonceRows.innerHTML = "";
+      listState.items.forEach(function (annonce) {
+        var tr = document.createElement("tr");
+        tr.appendChild(createTextCell(annonce.title));
+        tr.appendChild(createTextCell(annonce.status));
+        tr.appendChild(createTextCell(annonce.date));
+
+        var actions = document.createElement("td");
+        actions.appendChild(createLink("annonce.html?id=" + annonce.id, "Details"));
+        actions.appendChild(document.createTextNode(" | "));
+        actions.appendChild(createLink("edit.html?id=" + annonce.id, "Modifier"));
+
+        if (annonce.status === "DRAFT") {
+          var publishButton = document.createElement("button");
+          publishButton.textContent = "Publier";
+          publishButton.addEventListener("click", async function () {
+            var success = await publishAnnonceFromList(annonce.id, auth, listState, post);
+            render();
+            if (success) {
+              await reloadList();
+            }
+          });
+          actions.appendChild(document.createTextNode(" "));
+          actions.appendChild(publishButton);
+        } else if (annonce.status === "PUBLISHED") {
+          var archiveButton = document.createElement("button");
+          archiveButton.textContent = "Archiver";
+          archiveButton.addEventListener("click", async function () {
+            var success = await archiveAnnonceFromList(annonce.id, auth, listState, post);
+            render();
+            if (success) {
+              await reloadList();
+            }
+          });
+          actions.appendChild(document.createTextNode(" "));
+          actions.appendChild(archiveButton);
+        } else if (annonce.status === "ARCHIVED") {
+          var deleteButton = document.createElement("button");
+          deleteButton.textContent = "Supprimer";
+          deleteButton.addEventListener("click", async function () {
+            if (!confirm("Supprimer cette annonce archivee ?")) {
+              return;
+            }
+            var success = await deleteAnnonceFromList(annonce.id, auth, listState, del);
+            render();
+            if (success) {
+              await reloadList();
+            }
+          });
+          actions.appendChild(document.createTextNode(" "));
+          actions.appendChild(deleteButton);
+        }
+
+        tr.appendChild(actions);
+        annonceRows.appendChild(tr);
+      });
+    }
+
+    function renderPagination() {
+      if (Number(listState.totalPages) > 0) {
+        pagination.style.display = "block";
+        currentPage.textContent = String(Number(listState.page) + 1);
+        totalPages.textContent = String(listState.totalPages);
+        prevPage.style.visibility = Number(listState.page) > 0 ? "visible" : "hidden";
+        nextPage.style.visibility = Number(listState.page) + 1 < Number(listState.totalPages) ? "visible" : "hidden";
+      } else {
+        pagination.style.display = "none";
+      }
+    }
+
+    function render() {
+
+      totalItems.textContent = String(listState.totalItems || 0);
+      loadingMsg.style.display = listState.loading ? "block" : "none";
+      emptyMsg.style.display = !listState.loading && listState.items.length === 0 ? "block" : "none";
+      annonceTable.style.display = listState.items.length > 0 ? "table" : "none";
+      renderErrors();
+      renderRows();
+      renderPagination();
+    }
+
+    async function reloadList() {
+      listState.loading = true;
+      render();
+      await loadAnnonceList(auth, listState, get);
+      syncUrl();
+      render();
+    }
+
+    logoutLink.addEventListener("click", function (event) {
+      event.preventDefault();
+      logoutFromState(auth);
+    });
+
+    prevPage.addEventListener("click", async function (event) {
+      event.preventDefault();
+      if (Number(listState.page) <= 0) {
+        return;
+      }
+      listState.page = Number(listState.page) - 1;
+      await reloadList();
+    });
+
+    nextPage.addEventListener("click", async function (event) {
+      event.preventDefault();
+      if (Number(listState.page) + 1 >= Number(listState.totalPages)) {
+        return;
+      }
+      listState.page = Number(listState.page) + 1;
+      await reloadList();
+    });
+
+    reloadList();
+  </script>
+</body>
+</html>
+

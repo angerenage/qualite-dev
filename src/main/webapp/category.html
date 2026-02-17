@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ajout de categorie</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    .error { color: red; }
+    .success { color: green; }
+  </style>
+  <script src="auth-utils.js"></script>
+  <script src="jtx-actions.js"></script>
+  <script src="api-client.js"></script>
+  <script>
+    requireAuthAndRedirect();
+  </script>
+</head>
+<body>
+  <div>
+    <a href="index.html">Liste</a>
+    |
+    <a href="edit.html">Nouvelle annonce</a>
+    |
+    <a href="category.html">Nouvelle categorie</a>
+    |
+    <a href="#" id="logoutLink">Deconnexion</a>
+  </div>
+
+
+  <hr />
+
+  <h1>Nouvelle categorie</h1>
+
+  <ul id="errors"></ul>
+
+  <p class="success" id="successMsg" style="display: none;"></p>
+
+  <form id="categoryForm">
+    <label for="label">Libelle :</label>
+    <input id="label" name="label" type="text" />
+    <br />
+    <button type="submit">Enregistrer</button>
+  </form>
+
+  <hr />
+  <p>Application Annonces - IUT</p>
+
+  <script>
+    var auth = {
+      token: getStoredToken(),
+      expiresIn: getStoredExpiresIn()
+    };
+    var categoryFormState = {
+      label: "",
+      errors: [],
+      success: ""
+    };
+
+    var logoutLink = document.getElementById("logoutLink");
+
+    var errorsList = document.getElementById("errors");
+    var successMsg = document.getElementById("successMsg");
+    var categoryForm = document.getElementById("categoryForm");
+    var labelInput = document.getElementById("label");
+
+    function renderMessages() {
+
+      errorsList.innerHTML = "";
+      if (Array.isArray(categoryFormState.errors)) {
+        categoryFormState.errors.forEach(function (message) {
+          var li = document.createElement("li");
+          li.className = "error";
+          li.textContent = message;
+          errorsList.appendChild(li);
+        });
+      }
+
+      successMsg.textContent = categoryFormState.success || "";
+      successMsg.style.display = categoryFormState.success ? "block" : "none";
+    }
+
+    logoutLink.addEventListener("click", function (event) {
+      event.preventDefault();
+      logoutFromState(auth);
+    });
+
+    categoryForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      categoryFormState.label = labelInput.value;
+      var success = await validateCategoryCreation(auth, categoryFormState, post);
+      if (success) {
+        labelInput.value = "";
+      }
+      renderMessages();
+    });
+
+    renderMessages();
+  </script>
+</body>
+</html>
+

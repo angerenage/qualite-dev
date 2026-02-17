@@ -12,6 +12,7 @@ import org.univ_paris8.iut.montreuil.arollet.qualite_dev.entities.Category;
 
 public class CategoryRepository {
 	private static final int DEFAULT_PAGE_SIZE = 20;
+	private static final int MAX_PAGE_SIZE = 100;
 
 	public Category create(EntityManager em, Category category) {
 		em.persist(category);
@@ -77,9 +78,43 @@ public class CategoryRepository {
 		return query.getResultList();
 	}
 
+	public long countAll(EntityManager em) {
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<Long> cq = cb.createQuery(Long.class);
+		Root<Category> root = cq.from(Category.class);
+		cq.select(cb.count(root));
+		return em.createQuery(cq).getSingleResult();
+	}
+
+	public long countByKeyword(EntityManager em, String keyword) {
+		if (keyword == null || keyword.trim().isEmpty()) {
+			return countAll(em);
+		}
+		String kw = "%" + keyword.trim().toLowerCase() + "%";
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<Long> cq = cb.createQuery(Long.class);
+		Root<Category> root = cq.from(Category.class);
+		Predicate labelLike = cb.like(cb.lower(root.get("label")), kw);
+		cq.select(cb.count(root)).where(labelLike);
+		return em.createQuery(cq).getSingleResult();
+	}
+
+	public Category findByLabel(EntityManager em, String label) {
+		if (label == null || label.trim().isEmpty()) {
+			return null;
+		}
+		String normalized = label.trim().toLowerCase();
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<Category> cq = cb.createQuery(Category.class);
+		Root<Category> root = cq.from(Category.class);
+		cq.select(root).where(cb.equal(cb.lower(root.get("label")), normalized));
+		List<Category> results = em.createQuery(cq).setMaxResults(1).getResultList();
+		return results.isEmpty() ? null : results.get(0);
+	}
+
 	private void applyPagination(TypedQuery<?> query, int page, int size) {
 		int safePage = Math.max(0, page);
-		int safeSize = size > 0 ? size : DEFAULT_PAGE_SIZE;
+		int safeSize = size > 0 ? Math.min(size, MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
 		query.setFirstResult(safePage * safeSize);
 		query.setMaxResults(safeSize);
 	}

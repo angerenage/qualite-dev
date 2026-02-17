@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detail annonce</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    .error { color: red; }
+    .success { color: green; }
+  </style>
+  <script src="auth-utils.js"></script>
+  <script src="jtx-actions.js"></script>
+  <script src="api-client.js"></script>
+  <script>
+    requireAuthAndRedirect();
+  </script>
+</head>
+<body>
+  <div>
+    <a href="index.html">Liste</a>
+    |
+    <a href="edit.html">Nouvelle annonce</a>
+    |
+    <a href="category.html">Nouvelle categorie</a>
+    |
+    <a href="#" id="logoutLink">Deconnexion</a>
+  </div>
+
+
+  <hr />
+
+  <h1>Detail annonce</h1>
+
+  <ul id="errors"></ul>
+
+  <ul id="actionErrors"></ul>
+
+  <p class="success" id="successMsg" style="display: none;"></p>
+  <p id="loadingMsg" style="display: none;">Chargement...</p>
+
+  <div id="detailPanel" style="display: none;">
+    <p><strong>ID :</strong> <span id="annonceId"></span></p>
+    <p><strong>Titre :</strong> <span id="annonceTitle"></span></p>
+    <p><strong>Description :</strong> <span id="annonceDescription"></span></p>
+    <p><strong>Adresse :</strong> <span id="annonceAdress"></span></p>
+    <p><strong>Email :</strong> <span id="annonceMail"></span></p>
+    <p><strong>Statut :</strong> <span id="annonceStatus"></span></p>
+    <p><strong>Categorie :</strong> <span id="annonceCategory"></span></p>
+    <p><strong>Auteur :</strong> <span id="annonceAuthor"></span></p>
+    <p><strong>Date :</strong> <span id="annonceDate"></span></p>
+
+    <a id="editLink" href="#">Modifier</a>
+
+    <button id="publishButton" style="display: none;">Publier</button>
+    <button id="archiveButton" style="display: none;">Archiver</button>
+    <span id="archivedText" style="display: none;">Annonce archivee (lecture seule).</span>
+    <button id="deleteButton" style="display: none;">Supprimer</button>
+  </div>
+
+  <hr />
+  <p>Application Annonces - IUT</p>
+
+  <script>
+    var params = new URLSearchParams(window.location.search);
+
+    var auth = {
+      token: getStoredToken(),
+      expiresIn: getStoredExpiresIn()
+    };
+    var route = {
+      id: params.get("id")
+    };
+    var detail = {
+      annonce: null,
+      loading: false,
+      errors: [],
+      actionErrors: [],
+      success: ""
+    };
+
+    var logoutLink = document.getElementById("logoutLink");
+
+    var errorsList = document.getElementById("errors");
+    var actionErrorsList = document.getElementById("actionErrors");
+    var successMsg = document.getElementById("successMsg");
+    var loadingMsg = document.getElementById("loadingMsg");
+    var detailPanel = document.getElementById("detailPanel");
+    var annonceId = document.getElementById("annonceId");
+    var annonceTitle = document.getElementById("annonceTitle");
+    var annonceDescription = document.getElementById("annonceDescription");
+    var annonceAdress = document.getElementById("annonceAdress");
+    var annonceMail = document.getElementById("annonceMail");
+    var annonceStatus = document.getElementById("annonceStatus");
+    var annonceCategory = document.getElementById("annonceCategory");
+    var annonceAuthor = document.getElementById("annonceAuthor");
+    var annonceDate = document.getElementById("annonceDate");
+    var editLink = document.getElementById("editLink");
+    var publishButton = document.getElementById("publishButton");
+    var archiveButton = document.getElementById("archiveButton");
+    var archivedText = document.getElementById("archivedText");
+    var deleteButton = document.getElementById("deleteButton");
+
+    function renderMessages(target, messages) {
+      target.innerHTML = "";
+      if (!Array.isArray(messages) || messages.length === 0) {
+        return;
+      }
+      messages.forEach(function (message) {
+        var li = document.createElement("li");
+        li.className = "error";
+        li.textContent = message;
+        target.appendChild(li);
+      });
+    }
+
+    function renderDetail() {
+
+      loadingMsg.style.display = detail.loading ? "block" : "none";
+      renderMessages(errorsList, detail.errors);
+      renderMessages(actionErrorsList, detail.actionErrors);
+      successMsg.textContent = detail.success || "";
+      successMsg.style.display = detail.success ? "block" : "none";
+
+      if (!detail.annonce) {
+        detailPanel.style.display = "none";
+        return;
+      }
+
+      detailPanel.style.display = "block";
+      annonceId.textContent = detail.annonce.id == null ? "" : String(detail.annonce.id);
+      annonceTitle.textContent = detail.annonce.title == null ? "" : String(detail.annonce.title);
+      annonceDescription.textContent = detail.annonce.description == null ? "" : String(detail.annonce.description);
+      annonceAdress.textContent = detail.annonce.adress == null ? "" : String(detail.annonce.adress);
+      annonceMail.textContent = detail.annonce.mail == null ? "" : String(detail.annonce.mail);
+      annonceStatus.textContent = detail.annonce.status == null ? "" : String(detail.annonce.status);
+      annonceCategory.textContent = detail.annonce.categoryLabel == null ? "" : String(detail.annonce.categoryLabel);
+      annonceAuthor.textContent = detail.annonce.authorUsername == null ? "" : String(detail.annonce.authorUsername);
+      annonceDate.textContent = detail.annonce.date == null ? "" : String(detail.annonce.date);
+
+      editLink.href = "edit.html?id=" + detail.annonce.id;
+
+      var status = detail.annonce.status;
+      publishButton.style.display = status === "DRAFT" ? "inline-block" : "none";
+      archiveButton.style.display = status === "PUBLISHED" ? "inline-block" : "none";
+      archivedText.style.display = status === "ARCHIVED" ? "inline" : "none";
+      deleteButton.style.display = status === "ARCHIVED" ? "inline-block" : "none";
+    }
+
+    async function loadDetail() {
+      detail.loading = true;
+      renderDetail();
+      await loadAnnonceDetail(auth, route, detail, get);
+      renderDetail();
+    }
+
+    logoutLink.addEventListener("click", function (event) {
+      event.preventDefault();
+      logoutFromState(auth);
+    });
+
+    publishButton.addEventListener("click", async function () {
+      var success = await publishAnnonceFromDetail(auth, detail, post);
+      renderDetail();
+      if (success) {
+        await loadDetail();
+      }
+    });
+
+    archiveButton.addEventListener("click", async function () {
+      var success = await archiveAnnonceFromDetail(auth, detail, post);
+      renderDetail();
+      if (success) {
+        await loadDetail();
+      }
+    });
+
+    deleteButton.addEventListener("click", async function () {
+      if (!confirm("Supprimer cette annonce archivee ?")) {
+        return;
+      }
+      var success = await deleteAnnonceFromDetail(auth, detail, del);
+      renderDetail();
+      if (success) {
+        window.location.href = "index.html";
+      }
+    });
+
+    loadDetail();
+  </script>
+</body>
+</html>
+

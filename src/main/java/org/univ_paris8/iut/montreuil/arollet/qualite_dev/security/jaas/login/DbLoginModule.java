@@ -1,0 +1,122 @@
+package org.univ_paris8.iut.montreuil.arollet.qualite_dev.security.jaas.login;
+
+import java.io.IOException;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import javax.security.auth.Subject;
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.CallbackHandler;
+import javax.security.auth.callback.NameCallback;
+import javax.security.auth.callback.PasswordCallback;
+import javax.security.auth.callback.UnsupportedCallbackException;
+import javax.security.auth.login.FailedLoginException;
+import javax.security.auth.login.LoginException;
+import javax.security.auth.spi.LoginModule;
+
+import org.univ_paris8.iut.montreuil.arollet.qualite_dev.security.jaas.principal.RolePrincipal;
+import org.univ_paris8.iut.montreuil.arollet.qualite_dev.security.jaas.principal.UserPrincipal;
+import org.univ_paris8.iut.montreuil.arollet.qualite_dev.security.jaas.support.JaasUserRecord;
+import org.univ_paris8.iut.montreuil.arollet.qualite_dev.security.jaas.support.JaasUserStore;
+import org.univ_paris8.iut.montreuil.arollet.qualite_dev.services.auth.PasswordHasher;
+
+public class DbLoginModule implements LoginModule {
+	private Subject subject;
+	private CallbackHandler callbackHandler;
+	private JaasUserRecord authenticatedUser;
+	private UserPrincipal userPrincipal;
+	private final Set<RolePrincipal> rolePrincipals = new HashSet<>();
+	private final PasswordHasher passwordHasher = new PasswordHasher();
+	private boolean loginSucceeded;
+	private boolean commitSucceeded;
+
+	@Override
+	public void initialize(Subject subject, CallbackHandler callbackHandler, Map<String, ?> sharedState,
+			Map<String, ?> options) {
+		this.subject = subject;
+		this.callbackHandler = callbackHandler;
+	}
+
+	@Override
+	public boolean login() throws LoginException {
+		if (callbackHandler == null) {
+			throw new LoginException("No CallbackHandler provided.");
+		}
+
+		NameCallback nameCallback = new NameCallback("username");
+		PasswordCallback passwordCallback = new PasswordCallback("password", false);
+		try {
+			callbackHandler.handle(new Callback[] { nameCallback, passwordCallback });
+		} catch (IOException | UnsupportedCallbackException ex) {
+			throw new LoginException("Unable to read authentication callbacks.");
+		}
+
+		String username = nameCallback.getName();
+		char[] passwordChars = passwordCallback.getPassword();
+		String password = passwordChars == null ? "" : new String(passwordChars);
+		passwordCallback.clearPassword();
+
+		if (username == null || username.trim().isEmpty() || password.isEmpty()) {
+			throw new FailedLoginException("Invalid credentials.");
+		}
+
+		JaasUserRecord userRecord = JaasUserStore.findByUsername(username);
+		if (userRecord == null || !passwordHasher.matches(password, userRecord.getPasswordHash())) {
+			throw new FailedLoginException("Invalid credentials.");
+		}
+
+		this.authenticatedUser = userRecord;
+		this.loginSucceeded = true;
+		return true;
+	}
+
+	@Override
+	public boolean commit() throws LoginException {
+		if (!loginSucceeded) {
+			return false;
+		}
+
+		userPrincipal = new UserPrincipal(authenticatedUser.getUsername(), authenticatedUser.getUserId());
+		subject.getPrincipals().add(userPrincipal);
+		for (String role : authenticatedUser.getRoles()) {
+			RolePrincipal rolePrincipal = new RolePrincipal(role);
+			rolePrincipals.add(rolePrincipal);
+			subject.getPrincipals().add(rolePrincipal);
+		}
+
+		commitSucceeded = true;
+		return true;
+	}
+
+	@Override
+	public boolean abort() throws LoginException {
+		if (!loginSucceeded) {
+			return false;
+		}
+		if (!commitSucceeded) {
+			loginSucceeded = false;
+			authenticatedUser = null;
+		} else {
+			logout();
+		}
+		return true;
+	}
+
+	@Override
+	public boolean logout() throws LoginException {
+		if (subject != null) {
+			if (userPrincipal != null) {
+				subject.getPrincipals().remove(userPrincipal);
+			}
+			subject.getPrincipals().removeAll(rolePrincipals);
+		}
+
+		authenticatedUser = null;
+		userPrincipal = null;
+		rolePrincipals.clear();
+		loginSucceeded = false;
+		commitSucceeded = false;
+		return true;
+	}
+}

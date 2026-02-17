@@ -1,7 +1,0 @@
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<c:if test="${not empty requestScope.flashError}">
-	<p style="color: red;"><c:out value="${requestScope.flashError}" /></p>
-</c:if>
-<c:if test="${not empty requestScope.flashSuccess}">
-	<p style="color: green;"><c:out value="${requestScope.flashSuccess}" /></p>
-</c:if>

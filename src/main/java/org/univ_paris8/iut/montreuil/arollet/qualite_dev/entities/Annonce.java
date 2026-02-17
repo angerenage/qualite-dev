@@ -11,10 +11,11 @@ import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import javax.persistence.Version;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @Entity
 @Table(name = "annonce")
@@ -51,7 +52,11 @@ public class Annonce {
 	@NotNull
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private AnnonceStatus status = AnnonceStatus.ACTIVE;
+	private AnnonceStatus status = AnnonceStatus.DRAFT;
+
+	@Version
+	@Column(nullable = false)
+	private Long version;
 
 	@NotNull
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -65,41 +70,6 @@ public class Annonce {
 
 	public Annonce() {
 
-	}
-
-	public Annonce(String title, String description, String adress, String mail) {
-		this.title = title;
-		this.description = description;
-		this.adress = adress;
-		this.mail = mail;
-	}
-
-	public Annonce(String title, String description, String adress, String mail, User author, Category category) {
-		this.title = title;
-		this.description = description;
-		this.adress = adress;
-		this.mail = mail;
-		this.author = author;
-		this.category = category;
-	}
-
-	public Annonce(String title, String description, String adress, String mail, User author, Category category,
-			AnnonceStatus status) {
-		this.title = title;
-		this.description = description;
-		this.adress = adress;
-		this.mail = mail;
-		this.author = author;
-		this.category = category;
-		this.status = status;
-	}
-
-	public Annonce(Long id, String title, String description, String adress, String mail) {
-		this.id = id;
-		this.title = title;
-		this.description = description;
-		this.adress = adress;
-		this.mail = mail;
 	}
 
 	public Long getId() {
@@ -172,5 +142,9 @@ public class Annonce {
 
 	public void setStatus(AnnonceStatus status) {
 		this.status = status;
+	}
+
+	public Long getVersion() {
+		return version;
 	}
 }

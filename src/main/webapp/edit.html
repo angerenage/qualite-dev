@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Edition annonce</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    .error { color: red; }
+    form { margin-top: 12px; }
+  </style>
+  <script src="auth-utils.js"></script>
+  <script src="jtx-actions.js"></script>
+  <script src="api-client.js"></script>
+  <script>
+    requireAuthAndRedirect();
+  </script>
+</head>
+<body>
+  <div>
+    <a href="index.html">Liste</a>
+    |
+    <a href="edit.html">Nouvelle annonce</a>
+    |
+    <a href="category.html">Nouvelle categorie</a>
+    |
+    <a href="#" id="logoutLink">Deconnexion</a>
+  </div>
+
+
+  <hr />
+
+  <h1 id="formTitle">Nouvelle annonce</h1>
+
+  <ul id="errors"></ul>
+
+  <p id="loadingMsg" style="display: none;">Chargement...</p>
+
+  <form id="annonceForm">
+    <input id="annonceId" type="hidden" />
+
+    <label for="title">Titre :</label>
+    <input id="title" name="title" type="text" />
+    <br />
+
+    <label for="description">Description :</label>
+    <textarea id="description" name="description"></textarea>
+    <br />
+
+    <label for="adress">Adresse :</label>
+    <input id="adress" name="adress" type="text" />
+    <br />
+
+    <label for="mail">Email :</label>
+    <input id="mail" name="mail" type="email" />
+    <br />
+
+    <label for="categoryId">Categorie :</label>
+    <select id="categoryId" name="categoryId">
+      <option value="">-- Selectionner --</option>
+    </select>
+    <br />
+
+    <button type="submit">Enregistrer</button>
+  </form>
+
+  <hr />
+  <p>Application Annonces - IUT</p>
+
+  <script>
+    var params = new URLSearchParams(window.location.search);
+
+    var auth = {
+      token: getStoredToken(),
+      expiresIn: getStoredExpiresIn()
+    };
+    var route = {
+      id: params.get("id")
+    };
+    var formState = {
+      editMode: false,
+      id: null,
+      title: "",
+      description: "",
+      adress: "",
+      mail: "",
+      categoryId: "",
+      categoryOptions: [],
+      status: "DRAFT",
+      version: 0,
+      loading: false,
+      errors: []
+    };
+
+    var logoutLink = document.getElementById("logoutLink");
+
+    var formTitle = document.getElementById("formTitle");
+    var errorsList = document.getElementById("errors");
+    var loadingMsg = document.getElementById("loadingMsg");
+    var annonceForm = document.getElementById("annonceForm");
+    var annonceIdInput = document.getElementById("annonceId");
+    var titleInput = document.getElementById("title");
+    var descriptionInput = document.getElementById("description");
+    var adressInput = document.getElementById("adress");
+    var mailInput = document.getElementById("mail");
+    var categoryIdInput = document.getElementById("categoryId");
+
+    function renderErrors() {
+      errorsList.innerHTML = "";
+      if (!Array.isArray(formState.errors) || formState.errors.length === 0) {
+        return;
+      }
+      formState.errors.forEach(function (message) {
+        var li = document.createElement("li");
+        li.className = "error";
+        li.textContent = message;
+        errorsList.appendChild(li);
+      });
+    }
+
+    function renderCategoryOptions() {
+      categoryIdInput.innerHTML = "";
+      var emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "-- Selectionner --";
+      categoryIdInput.appendChild(emptyOption);
+
+      formState.categoryOptions.forEach(function (category) {
+        var option = document.createElement("option");
+        option.value = String(category.id);
+        option.textContent = category.label;
+        categoryIdInput.appendChild(option);
+      });
+
+      categoryIdInput.value = formState.categoryId == null ? "" : String(formState.categoryId);
+    }
+
+    function renderForm() {
+
+      formTitle.textContent = formState.editMode ? "Modifier une annonce" : "Nouvelle annonce";
+      loadingMsg.style.display = formState.loading ? "block" : "none";
+      annonceForm.style.display = formState.loading ? "none" : "block";
+
+      annonceIdInput.value = formState.id == null ? "" : String(formState.id);
+      titleInput.value = formState.title == null ? "" : String(formState.title);
+      descriptionInput.value = formState.description == null ? "" : String(formState.description);
+      adressInput.value = formState.adress == null ? "" : String(formState.adress);
+      mailInput.value = formState.mail == null ? "" : String(formState.mail);
+      renderCategoryOptions();
+      renderErrors();
+    }
+
+    logoutLink.addEventListener("click", function (event) {
+      event.preventDefault();
+      logoutFromState(auth);
+    });
+
+    annonceForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      formState.id = annonceIdInput.value ? Number(annonceIdInput.value) : null;
+      formState.title = titleInput.value;
+      formState.description = descriptionInput.value;
+      formState.adress = adressInput.value;
+      formState.mail = mailInput.value;
+      formState.categoryId = categoryIdInput.value;
+
+      var redirectUrl = await submitAnnonceForm(auth, formState, post, put);
+      renderForm();
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+      }
+    });
+
+    async function initializeForm() {
+      formState.loading = true;
+      renderForm();
+      await initAnnonceForm(auth, route, formState, get);
+      renderForm();
+    }
+
+    initializeForm();
+  </script>
+</body>
+</html>
+

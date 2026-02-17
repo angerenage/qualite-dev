@@ -6,8 +6,8 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 
 @Entity
 @Table(name = "user")
@@ -26,8 +26,11 @@ public class User {
 	private String email;
 
 	@NotBlank
-	@Column(nullable = false)
-	private String password;
+	@Column(name = "password_hash", nullable = false, length = 512)
+	private String passwordHash;
+
+	@Column(nullable = false, length = 128)
+	private String roles = "USER";
 
 	@Column(name = "created_at", nullable = false)
 	private java.sql.Timestamp createdAt;
@@ -36,10 +39,10 @@ public class User {
 
 	}
 
-	public User(String username, String email, String password) {
+	public User(String username, String email, String passwordHash) {
 		this.username = username;
 		this.email = email;
-		this.password = password;
+		this.passwordHash = passwordHash;
 	}
 
 	public Long getId() {
@@ -66,12 +69,20 @@ public class User {
 		this.email = email;
 	}
 
-	public String getPassword() {
-		return password;
+	public String getPasswordHash() {
+		return passwordHash;
 	}
 
-	public void setPassword(String password) {
-		this.password = password;
+	public void setPasswordHash(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
+
+	public String getRoles() {
+		return roles;
+	}
+
+	public void setRoles(String roles) {
+		this.roles = roles;
 	}
 
 	public java.sql.Timestamp getCreatedAt() {

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connexion</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 16px; }
+    .error { color: red; }
+    form { margin-bottom: 12px; }
+  </style>
+  <script src="auth-utils.js"></script>
+  <script src="jtx-actions.js"></script>
+  <script src="api-client.js"></script>
+  <script>
+    if (getStoredToken()) {
+      window.location.href = "index.html";
+    }
+  </script>
+</head>
+<body>
+  <h1>Connexion</h1>
+
+  <ul id="errors"></ul>
+
+  <form id="loginForm">
+    <label for="username">Identifiant (username) :</label>
+    <input id="username" type="text" />
+    <br />
+    <label for="password">Mot de passe :</label>
+    <input id="password" type="password" />
+    <br />
+    <button type="submit">Se connecter</button>
+  </form>
+
+  <hr />
+  <p>Application Annonces - IUT</p>
+
+  <script>
+    var auth = {
+      username: "",
+      password: "",
+      token: "",
+      expiresIn: 0,
+      errors: []
+    };
+
+    var errorsList = document.getElementById("errors");
+    var form = document.getElementById("loginForm");
+    var usernameInput = document.getElementById("username");
+    var passwordInput = document.getElementById("password");
+
+    function renderErrors() {
+      errorsList.innerHTML = "";
+      if (!Array.isArray(auth.errors) || auth.errors.length === 0) {
+        return;
+      }
+      auth.errors.forEach(function (message) {
+        var li = document.createElement("li");
+        li.className = "error";
+        li.textContent = message;
+        errorsList.appendChild(li);
+      });
+    }
+
+    form.addEventListener("submit", async function (event) {
+      event.preventDefault();
+      auth.username = usernameInput.value;
+      auth.password = passwordInput.value;
+      var success = await loginSubmit(auth, post);
+      renderErrors();
+      if (success) {
+        window.location.href = "index.html";
+      }
+    });
+  </script>
+</body>
+</html>

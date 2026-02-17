@@ -90,8 +90,23 @@ public class UserRepository {
 			cb.equal(cb.lower(root.get("username")), normalized),
 			cb.equal(cb.lower(root.get("email")), normalized)
 		);
-		Predicate passwordMatch = cb.equal(root.get("password"), password);
+		Predicate passwordMatch = cb.equal(root.get("passwordHash"), password);
 		cq.select(root).where(cb.and(loginMatch, passwordMatch));
+		TypedQuery<User> query = em.createQuery(cq);
+		List<User> results = query.setMaxResults(1).getResultList();
+		return results.isEmpty() ? null : results.get(0);
+	}
+
+	public User findByUsername(EntityManager em, String username) {
+		if (username == null || username.trim().isEmpty()) {
+			return null;
+		}
+
+		String normalized = username.trim().toLowerCase();
+		CriteriaBuilder cb = em.getCriteriaBuilder();
+		CriteriaQuery<User> cq = cb.createQuery(User.class);
+		Root<User> root = cq.from(User.class);
+		cq.select(root).where(cb.equal(cb.lower(root.get("username")), normalized));
 		TypedQuery<User> query = em.createQuery(cq);
 		List<User> results = query.setMaxResults(1).getResultList();
 		return results.isEmpty() ? null : results.get(0);
