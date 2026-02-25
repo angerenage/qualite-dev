@@ -1,59 +1,77 @@
-﻿Pour lancer :
-```mvn "-Djava.security.auth.login.config=./jaas.conf" jetty:run```
+Pour lancer :
+```mvn spring-boot:run```
+
+Pour lancer avec Docker :
+```docker compose up --build```
 
 Pour les tests :
 ```mvn test```
+
+Pour verifier tout le projet (unitaires + integration) :
+```mvn -B clean verify```
 
 Script SQL pour la base de données :
 `./src/main/resources/schema.sql`
 
 # Architecture
-Application web Java EE, mais maintenant en mode API REST + pages HTML simples.
+Application web Spring Boot en mode API REST + pages HTML simples.
 
-- `JAX-RS` (Jersey) = couche controleur HTTP (`/api/...`).
-- `Resource` = endpoints REST (`AuthResource`, `AnnonceResource`, etc.).
-- `DTO` + `Mapper` = format JSON d'entree/sortie.
+- `Controller` = endpoints HTTP (`AuthController`, `AnnonceController`, `CategoryController`, `MetaController`).
+- `DTO` + `Mapper` (MapStruct) = format JSON d'entree/sortie.
 - `Service` = regles metier (validations, droits, transitions de statut).
-- `Repository` (JPA/Hibernate) = acces aux donnees.
+- `Repository` (Spring Data JPA) = acces aux donnees + pagination/tri.
 - `Entity` = modeles metier (`Annonce`, `User`, `Category`, `AnnonceStatus`).
-- `HTML + JTX` = front leger qui consomme l'API.
+- `HTML + JS` = front leger qui consomme l'API.
 
 Flux principal:
 
-- Requete HTTP vers une resource REST (`/api/login`, `/api/annonces`, etc.).
+- Requete HTTP vers un endpoint REST (`/api/auth/login`, `/api/annonces`, etc.).
 - Validation des donnees via Bean Validation + verifs metier dans les services.
-- En cas d'erreur: reponse JSON propre via les `ExceptionMapper` (`400`, `401`, `403`, `404`, `409`...).
+- Mapping DTO <-> entités via MapStruct.
+- En cas d'erreur: reponse JSON centralisée via `GlobalExceptionHandler`.
 - En cas de succes: reponse JSON + code HTTP adapte (`200`, `201`, `204`).
 
 Sécurité:
 
-- Login via JAAS (`MasterAnnonceLogin`) dans `AuthService`.
-- Generation d'un token bearer en memoire avec expiration (`TokenService`).
-- `AuthTokenFilter` valide le token via JAAS (`MasterAnnonceToken`) puis remplit le `SecurityContext`.
-- Endpoints publics: login + lecture des annonces. Les ecritures demandent un token valide.
+- Login via `POST /api/auth/login`.
+- Generation d'un token JWT signe avec expiration.
+- `JwtAuthenticationFilter` valide le bearer token et remplit le contexte Spring Security.
+- Endpoints publics: login, Swagger, Actuator health/info.
+- Endpoints proteges: `/api/**` (hors login), avec roles `ROLE_USER` et `ROLE_ADMIN`.
 
 Persistance:
 
-- `SessionFactory` cree les `EntityManager`.
-- Les services ouvrent/ferment les transactions pour les ecritures.
-- Pagination et requetes faites au niveau repository.
+- Base principale : PostgreSQL (local ou Docker).
+- Recherche annonces : filtres + pagination + tri avec Specifications.
+- Endpoint meta : `/api/meta/annonces` pour exposer les champs utilisables (tri/filtres).
 
 Tests:
 
-- `mvn test` execute les tests unitaires/integration (service, resources REST, filter, repository).
-- Les tests utilisent JUnit 5 + Mockito.
+- `mvn test` execute les tests unitaires.
+- `mvn -B clean verify` exécute aussi les tests d'integration (`*IT`).
+- Profil test sur H2 (`application-test.yml`) pour des tests rapides et isoles.
 
-# Problèmes rencontrées
-Comprendres dans un premier temps l'architecture et les responsabilités des différents éléments pour pouvoir les organiser correctement.
-De la même façon, nommer certains composants à été compliqué et j'ai du regarder sur internet pour des références ou demander au professeur.
-Finalement, utiliser efficacement des technologies que je ne maitrise pas completement a été compliqué et j'ai du les apprendre un peu sur le tas.
-Par exemple JSTL, je n'utilisati pas forcément efficacement toutes les balises ou d'une façon optimal et le mélange entre le vieux et nouveau code m'a forcé a faire plusieurs gros refactor pour égaliser toute la base de code sur plusieurs aspects.
-J'ai aussi eu un probleme avec JAAS au lancement: sans la config explicite, les domaines JAAS n'etaient pas trouves et l'auth ne demarrait pas.
-Pour ce qui est front, je ne savais pas trop quoi faire et je ne savais même pas si on devais en faire un vraiment, j'ai finalement décidé d'en faire un pour me simplifier les tests.
-Je ne savais pas non plus si je devais faire les routes pour les catégories étant donné que ce n'était pas demandé dans le sujet, j'ai finalement décidé de les faire pour garder quelque chose plus proche du code d'avant.
+Observabilite et documentation:
+
+- Swagger UI : `/swagger-ui`.
+- Actuator : `/actuator/health` et `/actuator/info`.
+- Logging transversal des services via AOP + correlation id.
+
+Industrialisation:
+
+- Docker : `Dockerfile` + `docker-compose.yml` (application + PostgreSQL).
+- CI GitHub Actions sur `push` et `pull_request` vers `main`.
+- Pipeline en Java 17/21 avec `mvn -B clean verify`.
+- Artifact principal publie : `master-annonce-jar`.
+
+# Problemes rencontres
+Le point le plus delicat a ete la migration globale vers Spring Boot sans perdre la logique metier du TP precedent.
+La partie securite (JWT + filtres + droits) a demande plusieurs ajustements pour garder un comportement clair.
+La mise en place des filtres dynamiques, du tri et de la pagination a aussi demande du temps pour rester propre.
+Enfin, aligner la CI, Docker et les tests d'integration sur une configuration stable a pris plusieurs iterations.
 
 # Solutions
-Les problèmes n'était pas vraiment technique mais plus logique j'ai pus me reposer sur différentes ressources.
-Bien évidement en posant des questions au professeur mais aussi en utilisant l'IA ou le site de Jean-Michel Doudoux sur certains aspects.
-J'ai du ajouter `-Djava.security.auth.login.config=./jaas.conf` dans la commande Maven pour lancer correctement afin qu'il trouve les domaines JAAS, information que j'avais zappé dans le sujet.
-Pour le front j'ai donc fait générer la plupart du code HTML et JS par IA pour gagner du temps, le front n'étant pas l'objet principal du TP.
+Le projet a ete garde en architecture en couches (controller, service, repository) pour separer clairement les responsabilites.
+Les DTO + MapStruct ont ete utilises partout pour eviter d'exposer directement les entites.
+La securite a ete centralisee dans Spring Security (config + filtre JWT + regles metier dans les services).
+Pour les tests et la CI, l'usage de H2 en profil test permet d'avoir des executions simples, rapides et reproductibles.
